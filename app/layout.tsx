@@ -7,7 +7,7 @@ const _inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const _jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains' })
 
 export const metadata: Metadata = {
-  title: 'Cucumber Reports',
+  title: 'Cucumber Reports de Juanda',
   description: 'Dashboard para visualizar reportes de pruebas Cucumber',
 }
 
