@@ -23,6 +23,8 @@ interface FeaturesTableProps {
 export function FeaturesTable({ features }: FeaturesTableProps) {
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null)
 
+  const failedFeatures = features.filter((f) => f.failed > 0)
+
   const toggleFeature = (name: string) => {
     setExpandedFeature(expandedFeature === name ? null : name)
   }
@@ -33,9 +35,17 @@ export function FeaturesTable({ features }: FeaturesTableProps) {
         <div className="flex items-center gap-2">
           <FileText className="h-4 w-4 text-primary" />
           <CardTitle className="text-sm font-medium text-foreground">Detalle por Feature</CardTitle>
+          <span className="text-xs text-muted-foreground">
+            (solo features con fallos — {failedFeatures.length} de {features.length})
+          </span>
         </div>
       </CardHeader>
       <CardContent className="p-0">
+        {failedFeatures.length === 0 ? (
+          <div className="px-6 py-10 text-center">
+            <p className="text-sm text-muted-foreground">No hay features con escenarios fallidos.</p>
+          </div>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
@@ -50,7 +60,7 @@ export function FeaturesTable({ features }: FeaturesTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {features.map((feature) => (
+            {failedFeatures.map((feature) => (
               <Fragment key={feature.name}>
                 <TableRow
                   className="cursor-pointer border-border transition-colors hover:bg-secondary/50"
@@ -99,19 +109,29 @@ export function FeaturesTable({ features }: FeaturesTableProps) {
                     </Badge>
                   </TableCell>
                 </TableRow>
-                {expandedFeature === feature.name && (
-                  <TableRow className="border-border hover:bg-transparent">
-                    <TableCell colSpan={8} className="p-0">
-                      <div className="border-t border-border bg-secondary/30 px-6 py-4">
-                        <ScenarioDetail scenarios={feature.scenarios} />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
+                {expandedFeature === feature.name && (() => {
+                  const failedScenarios = feature.scenarios.filter((s) => s.status === "failed")
+                  return (
+                    <TableRow className="border-border hover:bg-transparent">
+                      <TableCell colSpan={8} className="p-0">
+                        <div className="border-t border-border bg-secondary/30 px-6 py-4">
+                          {failedScenarios.length > 0 ? (
+                            <ScenarioDetail scenarios={failedScenarios} />
+                          ) : (
+                            <p className="py-2 text-center text-sm text-muted-foreground">
+                              No hay escenarios fallidos en esta feature.
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })()}
               </Fragment>
             ))}
           </TableBody>
         </Table>
+        )}
       </CardContent>
     </Card>
   )

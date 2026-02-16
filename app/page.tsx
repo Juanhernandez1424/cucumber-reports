@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { ReportHeader } from "@/components/report-header"
 import { StatsCards } from "@/components/stats-cards"
@@ -11,11 +11,13 @@ import { EmptyState } from "@/components/empty-state"
 import { parseCucumberReport } from "@/lib/parse-cucumber"
 import { sampleReport } from "@/lib/sample-data"
 import type { ReportSummary } from "@/lib/cucumber-types"
+import { SendReportDialog } from "@/components/send-report-dialog"
 import { FlaskConical } from "lucide-react"
 
 export default function CucumberDashboard() {
   const [summary, setSummary] = useState<ReportSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const dashboardRef = useRef<HTMLDivElement>(null)
 
   const handleUpload = useCallback((file: File) => {
     setError(null)
@@ -64,13 +66,18 @@ export default function CucumberDashboard() {
   return (
     <main className="mx-auto min-h-screen max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-6">
-        <ReportHeader onUpload={handleUpload} hasReport={true} />
-        <StatsCards summary={summary} />
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ResultsChart summary={summary} />
-          <StepsChart summary={summary} />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <ReportHeader onUpload={handleUpload} hasReport={true} />
+          <SendReportDialog summary={summary} dashboardRef={dashboardRef} />
         </div>
-        <FeaturesTable features={summary.features} />
+        <div ref={dashboardRef} className="flex flex-col gap-6">
+          <StatsCards summary={summary} />
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <ResultsChart summary={summary} />
+            <StepsChart summary={summary} />
+          </div>
+          <FeaturesTable features={summary.features} />
+        </div>
       </div>
     </main>
   )

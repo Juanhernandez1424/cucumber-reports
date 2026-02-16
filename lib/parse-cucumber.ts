@@ -90,6 +90,7 @@ export function parseCucumberReport(report: CucumberReport): ReportSummary {
   const passRate = totalScenarios > 0 ? (passedScenarios / totalScenarios) * 100 : 0
 
   return {
+    
     totalFeatures: features.length,
     totalScenarios,
     passedScenarios,

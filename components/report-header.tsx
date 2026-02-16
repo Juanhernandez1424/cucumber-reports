@@ -15,7 +15,7 @@ export function ReportHeader({ onUpload, hasReport }: ReportHeaderProps) {
   }
 
   return (
-    <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <header className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
           <FlaskConical className="h-5 w-5 text-primary" />
