@@ -40,7 +40,7 @@ export function EmptyState({ onUpload }: EmptyStateProps) {
             </span>
           </Button>
         </label>
-        <p className="text-xs text-muted-foreground">o usa los datos de ejemplo para explorar</p>
+        {/* <p className="text-xs text-muted-foreground">o usa los datos de ejemplo para explorar</p> */}
       </div>
     </div>
   )
