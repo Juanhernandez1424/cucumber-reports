@@ -1,21 +1,23 @@
-import { Resend } from "resend"
+import nodemailer from "nodemailer"
 import { NextResponse } from "next/server"
 
 export const runtime = "nodejs"
-
-// Increase body size limit for this route (base64 files can be large)
 export const maxDuration = 30
 
 export async function POST(request: Request) {
   try {
-    if (!process.env.RESEND_API_KEY) {
+    const gmailUser = process.env.GMAIL_USER
+    const gmailPass = process.env.GMAIL_APP_PASSWORD
+
+    if (!gmailUser || !gmailPass) {
       return NextResponse.json(
-        { error: "RESEND_API_KEY no esta configurada. Agregala en las variables de entorno." },
+        {
+          error:
+            "GMAIL_USER o GMAIL_APP_PASSWORD no estan configuradas. Agregalas en las variables de entorno.",
+        },
         { status: 500 }
       )
     }
-
-    const resend = new Resend(process.env.RESEND_API_KEY)
 
     let body: Record<string, unknown>
     try {
@@ -50,12 +52,14 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate base64 size - Resend has a 40MB limit but we cap at 10MB to be safe
+    // Validate base64 size (cap at 10MB)
     const estimatedSizeBytes = (fileBase64.length * 3) / 4
     const maxSizeMB = 10
     if (estimatedSizeBytes > maxSizeMB * 1024 * 1024) {
       return NextResponse.json(
-        { error: `El archivo es demasiado grande (${(estimatedSizeBytes / 1024 / 1024).toFixed(1)}MB). El limite es ${maxSizeMB}MB.` },
+        {
+          error: `El archivo es demasiado grande (${(estimatedSizeBytes / 1024 / 1024).toFixed(1)}MB). El limite es ${maxSizeMB}MB.`,
+        },
         { status: 413 }
       )
     }
@@ -95,17 +99,24 @@ export async function POST(request: Request) {
             </tr>
           </table>
 
-          ${summary?.failedScenarios > 0 ? `
+          ${
+            summary?.failedScenarios > 0
+              ? `
           <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-            <h3 style="margin: 0 0 8px; font-size: 14px; color: #dc2626;">Escenarios Fallidos</h3>
+            <h3 style="margin: 0 0 8px; font-size: 14px; color: #dc2626;">Features con Fallos</h3>
             <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #991b1b; line-height: 1.8;">
               ${(summary.features ?? [])
                 .filter((f: { failed: number }) => f.failed > 0)
-                .map((f: { name: string; failed: number }) => `<li><strong>${f.name}</strong> - ${f.failed} fallido(s)</li>`)
+                .map(
+                  (f: { name: string; failed: number }) =>
+                    `<li><strong>${f.name}</strong> - ${f.failed} fallido(s)</li>`
+                )
                 .join("")}
             </ul>
           </div>
-          ` : ""}
+          `
+              : ""
+          }
 
           <p style="font-size: 13px; color: #666; margin: 0;">
             El reporte visual completo se encuentra adjunto como archivo <strong>${fileName}</strong>.
@@ -120,34 +131,37 @@ export async function POST(request: Request) {
       </div>
     `
 
-    const { data, error } = await resend.emails.send({
-      from: "Cucumber Reports <onboarding@resend.dev>",
-      to: Array.isArray(to) ? to : [to],
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: gmailUser,
+        pass: gmailPass,
+      },
+    })
+
+    const mimeType = fileType === "pdf" ? "application/pdf" : "image/jpeg"
+
+    const info = await transporter.sendMail({
+      from: `Cucumber Reports <${gmailUser}>`,
+      to,
       subject,
       html: htmlContent,
       attachments: [
         {
           filename: fileName,
           content: buffer,
-          contentType: fileType === "pdf" ? "application/pdf" : "image/jpeg",
+          contentType: mimeType,
         },
       ],
     })
 
-    if (error) {
-      console.error("[v0] Resend API error:", error)
-      return NextResponse.json(
-        { error: error.message || "Error de Resend al enviar el correo" },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({ success: true, id: data?.id })
+    return NextResponse.json({ success: true, messageId: info.messageId })
   } catch (err) {
-    console.error("[v0] Unexpected error in send-report:", err)
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error interno al enviar el correo" },
-      { status: 500 }
-    )
+    console.error("[send-report] Error:", err)
+    const message =
+      err instanceof Error ? err.message : "Error interno al enviar el correo"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }

@@ -14,7 +14,10 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { createRoot } from "react-dom/client"
 import type { ReportSummary } from "@/lib/cucumber-types"
+import { FeaturesTable } from "./features-table"
+import { generatePDF } from "@/lib/generate-pdf" // Necesitamos crear este helper
 
 interface SendReportDialogProps {
   summary: ReportSummary
@@ -39,46 +42,32 @@ export function SendReportDialog({ summary, dashboardRef }: SendReportDialogProp
   const captureAsBase64 = async (): Promise<{ base64: string; fileName: string; fileType: string }> => {
     if (!dashboardRef.current) throw new Error("Dashboard no encontrado")
 
-    const html2canvas = (await import("html2canvas")).default
-    const canvas = await html2canvas(dashboardRef.current, {
-      backgroundColor: "#0a0a0f",
-      scale: 1,
-      useCORS: true,
-      logging: false,
-    })
-
-    // Compress: use JPEG at 0.6 quality to keep file size small
-    const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.6)
     const dateSuffix = new Date().toISOString().slice(0, 10)
 
     if (format === "image") {
+      const html2canvas = (await import("html2canvas")).default
+      const canvas = await html2canvas(dashboardRef.current, {
+        backgroundColor: "#0a0a0f",
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      })
+
+      const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.8)
       const base64 = jpegDataUrl.split(",")[1]
+      
       return {
         base64,
         fileName: `reporte-cucumber-${dateSuffix}.jpg`,
         fileType: "image",
       }
     } else {
-      const { jsPDF } = await import("jspdf")
-      const imgWidth = canvas.width
-      const imgHeight = canvas.height
-      const isLandscape = imgWidth > imgHeight
-      const pdf = new jsPDF({
-        orientation: isLandscape ? "landscape" : "portrait",
-        unit: "px",
-        format: [imgWidth, imgHeight],
-      })
-      pdf.addImage(jpegDataUrl, "JPEG", 0, 0, imgWidth, imgHeight)
-      const arrayBuffer = pdf.output("arraybuffer")
-      const uint8 = new Uint8Array(arrayBuffer)
-      const chunks: string[] = []
-      const chunkSize = 8192
-      for (let i = 0; i < uint8.length; i += chunkSize) {
-        chunks.push(String.fromCharCode(...uint8.subarray(i, i + chunkSize)))
-      }
-      const base64 = btoa(chunks.join(""))
+      // Usar la nueva función generatePDF
+      const { generatePDF } = await import("@/lib/generate-pdf")
+      const pdfBase64 = await generatePDF(dashboardRef.current, summary)
+      
       return {
-        base64,
+        base64: pdfBase64,
         fileName: `reporte-cucumber-${dateSuffix}.pdf`,
         fileType: "pdf",
       }
@@ -156,7 +145,7 @@ export function SendReportDialog({ summary, dashboardRef }: SendReportDialogProp
         <DialogHeader>
           <DialogTitle className="text-foreground">Enviar Reporte por Correo</DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Se captura el dashboard como {format === "pdf" ? "PDF" : "imagen"} y se envia adjunto al correo.
+            Se envía el reporte completo con dashboard y detalle de features fallidos.
           </DialogDescription>
         </DialogHeader>
 
@@ -208,7 +197,7 @@ export function SendReportDialog({ summary, dashboardRef }: SendReportDialogProp
                 <FileText className="h-5 w-5 shrink-0" />
                 <div>
                   <p className="text-sm font-medium">PDF</p>
-                  <p className="text-xs opacity-70">Documento portable</p>
+                  <p className="text-xs opacity-70">Con texto seleccionable</p>
                 </div>
               </button>
               <button
@@ -224,7 +213,7 @@ export function SendReportDialog({ summary, dashboardRef }: SendReportDialogProp
                 <FileImage className="h-5 w-5 shrink-0" />
                 <div>
                   <p className="text-sm font-medium">Imagen</p>
-                  <p className="text-xs opacity-70">Captura PNG</p>
+                  <p className="text-xs opacity-70">Como captura</p>
                 </div>
               </button>
             </div>
@@ -237,7 +226,7 @@ export function SendReportDialog({ summary, dashboardRef }: SendReportDialogProp
               <div>
                 <p className="text-sm font-medium text-foreground">Correo enviado exitosamente</p>
                 <p className="text-xs text-muted-foreground">
-                  El reporte fue enviado a <strong>{to}</strong> con el {format === "pdf" ? "PDF" : "imagen"} adjunto.
+                  El reporte fue enviado a <strong>{to}</strong>.
                 </p>
               </div>
             </div>
@@ -267,7 +256,7 @@ export function SendReportDialog({ summary, dashboardRef }: SendReportDialogProp
               {status === "generating" ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Capturando dashboard...
+                  Generando PDF...
                 </>
               ) : status === "sending" ? (
                 <>
